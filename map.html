@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MUJ Map</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <style>
+        #map {
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>Campus Map</h2>
+
+<!-- ✅ SEARCH BAR ABOVE MAP -->
+<input type="text" id="searchBox" placeholder="Search building (e.g. AB1)">
+<button onclick="searchLocation()">Search</button>
+
+<!-- ✅ ONLY ONE MAP DIV -->
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+  var locations = {
+    "AB1": [
+       [26.843323298975545,  75.56470513343812],
+[26.84292144436609,75.56368589401245],
+[26.841773280479554, 75.56419014930727],
+[ 26.842117730868093,75.5651879310608]
+    ]
+};
+    var bounds = [
+        [26.8415, 75.5635],
+        [26.8455, 75.5685]
+    ];
+
+   var map = L.map('map', {
+    maxBounds: bounds,
+    maxBoundsViscosity: 1.0,
+    minZoom: 15,
+    maxZoom: 19,
+    zoomAnimation: true,
+    fadeAnimation: true,
+    markerZoomAnimation: true
+}).setView([26.8435, 75.5654], 15);
+    // 👇 click to get coordinates
+    map.on('click', function(e) {
+        console.log(e.latlng);
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+    currentShape.bindPopup(input).openPopup();
+
+    L.marker([26.8435, 75.5654]).addTo(map)
+        .bindPopup("MUJ Campus")
+        .openPopup();
+
+   
+   var currentShape = null;
+
+function searchLocation() {
+    var input = document.getElementById("searchBox").value.toUpperCase();
+
+    if (locations[input]) {
+
+        // remove old highlight
+        if (currentShape) {
+            map.removeLayer(currentShape);
+        }
+
+        // draw polygon
+        currentShape = L.polygon(locations[input], {
+          color: 'purple',
+fillColor: 'purple',
+fillOpacity: 0.3
+        }).addTo(map);
+        currentShape.bindPopup(input).openPopup();
+
+        // zoom to area
+        map.flyToBounds(currentShape.getBounds(), {
+    padding: [40, 40],
+    maxZoom: 19,
+    duration: 1.5
+});
+
+    } else {
+        alert("Location not found");
+    }
+}
+
+    // (you can add search function here later)
+</script>
+
+</body>
+</html>
