@@ -1,164 +1,135 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>MUJ Map</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MapifyMUJ · Map</title>
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-
-    <style>
-        body {
-            font-family: Arial;
-            text-align: center;
-        }
-
-        #map {
-            height: 80vh;
-            margin-top: 10px;
-        }
-
-        button {
-            margin: 5px;
-            padding: 8px 12px;
-            cursor: pointer;
-        }
-    </style>
+<link rel="stylesheet" href="style.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
 </head>
 
 <body>
+<div id="app">
 
-<h1>Mapify MUJ</h1>
+  <!-- BUILDINGS VIEW -->
+  <div id="view-buildings">
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div>
+          <p class="greeting">📍 Manipal University Jaipur</p>
+          <h1 class="hero-title">Navigate Campus</h1>
+        </div>
+        <div class="avatar">C</div>
+      </div>
+    </div>
 
-<!-- ✅ NAVIGATION UI -->
-<h2>Select Building</h2>
+    <p class="sec-label">Select Building</p>
+    <div class="bld-grid" id="bld-grid"></div>
+  </div>
 
-<button onclick="openBuilding('AB1')">AB1</button>
-<button onclick="openBuilding('AB2')">AB2</button>
-<button onclick="openBuilding('AB3')">AB3</button>
-<button onclick="openBuilding('LHC')">LHC</button>
-<button onclick="openBuilding('DOME')">DOME</button>
+  <!-- FLOORS VIEW -->
+  <div id="view-floors" style="display:none">
+    <div class="back-row">
+      <button class="back-btn" onclick="showBuildings()">‹</button>
+      <h1 class="hero-title" id="floor-title">Building</h1>
+    </div>
 
-<!-- ⭐ FULL MAP BUTTON -->
-<button onclick="showFullMap()">Full Map</button>
+    <p class="sec-label">Select Floor</p>
+    <div class="floor-list" id="floor-list"></div>
+  </div>
 
-<hr>
+  <!-- ROOMS VIEW -->
+  <div id="view-rooms" style="display:none">
+    <div class="back-row">
+      <button class="back-btn" onclick="showFloors()">‹</button>
+      <h1 class="hero-title" id="room-title">Rooms</h1>
+    </div>
 
-<!-- Floors will appear here -->
-<div id="floorSelection"></div>
-
-<!-- ✅ FULL MAP SECTION (HIDDEN INITIALLY) -->
-<div id="fullMapSection" style="display:none;">
-
-    <h2>Campus Map</h2>
-
-    <input type="text" id="searchBox" placeholder="Search building (e.g. AB1)">
-    <button onclick="searchLocation()">Search</button>
-
-    <div id="map"></div>
+    <div class="room-grid" id="room-grid"></div>
+  </div>
 
 </div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<!-- BOTTOM NAV -->
+<nav class="bnav">
+  <a class="nb" href="index.html">🏠 Home</a>
+  <a class="nb" href="timetable.html">📅 Schedule</a>
+  <a class="nb on" href="map.html">🗺️ Map</a>
+</nav>
+
+<script src="script.js"></script>
 
 <script>
-/* ---------------- BUILDING → FLOOR ---------------- */
+let selectedBuilding = null;
+let selectedFloor = null;
 
-function openBuilding(building) {
-    let floorsHTML = `
-        <h3>${building} Floors</h3>
-        <button onclick="openFloor('${building}', '1')">1st Floor</button>
-        <button onclick="openFloor('${building}', '2')">2nd Floor</button>
-        <button onclick="openFloor('${building}', '3')">3rd Floor</button>
-    `;
+/* ---------- BUILDINGS ---------- */
+function renderBuildings() {
+  const grid = document.getElementById("bld-grid");
 
-    document.getElementById("floorSelection").innerHTML = floorsHTML;
+  grid.innerHTML = Object.entries(BUILDING_META).map(([id, b]) => `
+    <div class="bld-card" onclick="selectBuilding('${id}')">
+      <div class="bld-icon" style="background:${b.light}">${b.emoji}</div>
+      <div>
+        <div class="bld-name">${b.short}</div>
+        <div class="bld-sub">${Object.keys(ROOMS[id]).length} floors</div>
+      </div>
+    </div>
+  `).join("");
 }
 
-function openFloor(building, floor) {
-    alert(building + " Floor " + floor + " (next step: show indoor map)");
+function selectBuilding(id) {
+  selectedBuilding = id;
+
+  document.getElementById("view-buildings").style.display = "none";
+  document.getElementById("view-floors").style.display = "block";
+
+  document.getElementById("floor-title").textContent = BUILDING_META[id].label;
+
+  const floors = Object.keys(ROOMS[id]);
+
+  document.getElementById("floor-list").innerHTML = floors.map(f => `
+    <div class="floor-card" onclick="selectFloor('${f}')">
+      <div class="floor-name">${f}</div>
+      <div class="floor-meta">${ROOMS[id][f].length} rooms</div>
+    </div>
+  `).join("");
 }
 
-/* ---------------- FULL MAP ---------------- */
+/* ---------- FLOORS ---------- */
+function selectFloor(floor) {
+  selectedFloor = floor;
 
-let map;  // declare globally
-let currentShape = null;
+  document.getElementById("view-floors").style.display = "none";
+  document.getElementById("view-rooms").style.display = "block";
 
-function showFullMap() {
+  document.getElementById("room-title").textContent = floor;
 
-    document.getElementById("fullMapSection").style.display = "block";
+  const rooms = ROOMS[selectedBuilding][floor];
 
-    // initialize map ONLY ONCE
-    if (!map) {
-
-        var bounds = [
-            [26.8415, 75.5635],
-            [26.8455, 75.5685]
-        ];
-
-        map = L.map('map', {
-            maxBounds: bounds,
-            maxBoundsViscosity: 1.0,
-            minZoom: 15,
-            maxZoom: 19
-        }).setView([26.8435, 75.5654], 15);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        // marker
-        L.marker([26.8435, 75.5654]).addTo(map)
-            .bindPopup("MUJ Campus")
-            .openPopup();
-
-        // click to get coordinates
-        map.on('click', function(e) {
-            console.log(e.latlng);
-        });
-    }
+  document.getElementById("room-grid").innerHTML = rooms.map(r => `
+    <div class="room-card">
+      <div class="room-ico">🚪</div>
+      <div class="rn">${r.num}</div>
+      <div class="rt">${r.type}</div>
+    </div>
+  `).join("");
 }
 
-/* ---------------- SEARCH ---------------- */
-
-var locations = {
-    "AB1": [
-        [26.843323298975545, 75.56470513343812],
-        [26.84292144436609, 75.56368589401245],
-        [26.841773280479554, 75.56419014930727],
-        [26.842117730868093, 75.5651879310608]
-    ]
-};
-
-function searchLocation() {
-
-    var input = document.getElementById("searchBox").value.toUpperCase();
-
-    if (locations[input]) {
-
-        // remove old shape
-        if (currentShape) {
-            map.removeLayer(currentShape);
-        }
-
-        // draw polygon
-        currentShape = L.polygon(locations[input], {
-            color: 'purple',
-            fillColor: 'purple',
-            fillOpacity: 0.3
-        }).addTo(map);
-
-        currentShape.bindPopup(input).openPopup();
-
-        // zoom
-        map.flyToBounds(currentShape.getBounds(), {
-            padding: [40, 40],
-            maxZoom: 19,
-            duration: 1.5
-        });
-
-    } else {
-        alert("Location not found");
-    }
+/* ---------- BACK ---------- */
+function showBuildings() {
+  document.getElementById("view-floors").style.display = "none";
+  document.getElementById("view-buildings").style.display = "block";
 }
+
+function showFloors() {
+  document.getElementById("view-rooms").style.display = "none";
+  document.getElementById("view-floors").style.display = "block";
+}
+
+/* ---------- INIT ---------- */
+renderBuildings();
 </script>
 
 </body>
